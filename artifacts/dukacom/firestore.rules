@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function ownsCompany(data) {
+      return signedIn()
+        && (
+          (data.keys().hasAny(["userId"]) && data.userId == request.auth.uid)
+          || (data.keys().hasAny(["uid_proprietaire"]) && data.uid_proprietaire == request.auth.uid)
+        );
+    }
+
+    function ownsCompanyId(entrepriseId) {
+      let company = get(/databases/$(database)/documents/entreprises/$(entrepriseId)).data;
+      return signedIn()
+        && (
+          (company.keys().hasAny(["userId"]) && company.userId == request.auth.uid)
+          || (company.keys().hasAny(["uid_proprietaire"]) && company.uid_proprietaire == request.auth.uid)
+        );
+    }
+
+    // Les boutiques et produits sont visibles par tous les visiteurs du catalogue.
+    match /entreprises/{entrepriseId} {
+      allow get, list: if true;
+      allow create: if ownsCompany(request.resource.data);
+      allow update, delete: if isAdmin() || ownsCompany(resource.data);
+    }
+
+    match /produits/{produitId} {
+      allow get, list: if true;
+      // L'association au propriétaire est portée par le document entreprise.
+      allow create: if isAdmin()
+        || (
+          request.resource.data.keys().hasAny(["id_entreprise_fk"])
+          && ownsCompanyId(request.resource.data.id_entreprise_fk)
+        );
+      allow update, delete: if isAdmin()
+        || (
+          resource.data.keys().hasAny(["id_entreprise_fk"])
+          && ownsCompanyId(resource.data.id_entreprise_fk)
+        );
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /transactions/{transactionId} {
+      allow read, create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

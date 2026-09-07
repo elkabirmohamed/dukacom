@@ -1,0 +1,1 @@
+- [Index Firestore](firestore-query-indexes.md) — éviter les requêtes equality + orderBy sans index composite géré explicitement.

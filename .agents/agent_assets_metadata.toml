@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "nPzzgBZJv-eV0fgYHpS8c"
+uri = "file://.local/outputs/dukacom-code.pdf"
+type = "pdf"
+title = "DukaCom — Code source de l'application (mis à jour)"
+
+[[outputs]]
+id = "M3mtuNzXs2pxfQo1eaj9M"
+uri = "file://artifacts/dukacom/emailjs-template-recu.html"
+type = "unspecified"
+title = "Modèle de reçu EmailJS — DukaCom"
+
+[[outputs]]
+id = "LWnuEjByxfhRbf-fYxu_W"
+uri = "file://.local/outputs/dist.zip"
+type = "unspecified"
+title = "DukaCom — dist.zip (chargement infini corrigé)"
