@@ -19,6 +19,25 @@ interface FirestoreDocument {
   fields?: Record<string, FirestoreValue>;
 }
 
+interface FetchResponse {
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+}
+
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
+declare const fetch: (
+  input: string,
+  init?: { headers?: Record<string, string>; signal?: unknown },
+) => Promise<FetchResponse>;
+
+declare const AbortSignal: {
+  timeout(milliseconds: number): unknown;
+};
+
 const SITE_URL = "https://dukacom.vercel.app";
 
 function escapeHtml(value: string): string {
@@ -44,12 +63,9 @@ function getFormattedPrice(fields: Record<string, FirestoreValue>): string {
 }
 
 function getPublicImageUrl(value: string): string | null {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
+  const imageUrl = value.trim();
+  const match = /^https:\/\/([^/?#\s]+)(?:[/?#][^\s]*)?$/i.exec(imageUrl);
+  return match && match[1] && !match[1].includes("@") ? imageUrl : null;
 }
 
 function renderPreviewHtml(
@@ -121,12 +137,12 @@ export default async function handler(req: PreviewRequest, res: PreviewResponse)
     return;
   }
 
-  const documentUrl = new URL(
-    `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/produits/${encodeURIComponent(id)}`,
-  );
-  documentUrl.searchParams.set("key", apiKey);
+  const documentUrl =
+    `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}` +
+    `/databases/(default)/documents/produits/${encodeURIComponent(id)}` +
+    `?key=${encodeURIComponent(apiKey)}`;
 
-  let response: Response;
+  let response: FetchResponse;
   try {
     response = await fetch(documentUrl, {
       headers: { Accept: "application/json" },
