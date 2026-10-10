@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { getActiveProducts, ProduitDoc, getAllEntreprises, EntrepriseDoc } from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
+import { buildProductOrderWhatsAppUrl } from "@/lib/whatsapp";
 
 const VILLES = ["Moroni", "Mutsamudu", "Fomboni", "Domoni", "Sima", "Ouani", "Mitsoudjé", "Mitsamiouli", "Bandamaji", "Ntsoudjini"];
 const CATEGORIES = ["Alimentation", "Vêtements", "Électronique", "Meubles", "Santé & Beauté", "Agriculture", "Construction", "Services", "Automobile", "Divers"];
@@ -75,11 +76,8 @@ export default function Home() {
   });
 
   const handleWhatsApp = (p: ProduitDoc, ent: EntrepriseDoc) => {
-    const text = encodeURIComponent(`Bonjour, je suis intéressé(e) par le produit ${p.titre} au prix de ${p.prix_kmf} KMF.`);
-    // clean phone number - remove non-digits, ensure it starts with correct prefix. 
-    // Usually WhatsApp links prefer no '+' or just digits.
-    const num = ent.whatsapp_num.replace(/[^0-9]/g, '');
-    window.open(`https://wa.me/${num}?text=${text}`, '_blank');
+    const url = buildProductOrderWhatsAppUrl(ent.whatsapp_num, p, ent.nom_entreprise);
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (

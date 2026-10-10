@@ -10,6 +10,7 @@ import {
   getProduitsForEntreprise,
   ProduitDoc,
 } from "@/lib/firestore-helpers";
+import { buildProductOrderWhatsAppUrl } from "@/lib/whatsapp";
 
 export default function ShopPage() {
   const [, params] = useRoute("/boutique/:id");
@@ -85,11 +86,12 @@ export default function ShopPage() {
   }
 
   const handleWhatsApp = (produit: ProduitDoc) => {
-    const number = entreprise.whatsapp_num.replace(/[^0-9]/g, "");
-    const text = encodeURIComponent(
-      `Bonjour, je suis intéressé(e) par le produit ${produit.titre} au prix de ${produit.prix_kmf} KMF.`,
+    const url = buildProductOrderWhatsAppUrl(
+      entreprise.whatsapp_num,
+      produit,
+      entreprise.nom_entreprise,
     );
-    window.open(`https://wa.me/${number}?text=${text}`, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (

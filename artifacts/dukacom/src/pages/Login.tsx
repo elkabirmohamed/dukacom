@@ -5,6 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -12,7 +21,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const { login, requestPasswordReset } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -31,6 +43,30 @@ export default function Login() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSendingReset(true);
+    try {
+      await requestPasswordReset(resetEmail.trim());
+      setEmail(resetEmail.trim());
+      setIsResetDialogOpen(false);
+      toast({
+        title: "Demande envoyée",
+        description:
+          "Si un compte correspond à cette adresse, un lien de réinitialisation a été envoyé.",
+      });
+    } catch (err) {
+      console.error("Échec de l’envoi du lien de réinitialisation :", err);
+      toast({
+        title: "Envoi impossible",
+        description: "Vérifiez l’adresse e-mail et réessayez.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -57,7 +93,56 @@ export default function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Dialog
+                  open={isResetDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsResetDialogOpen(open);
+                    if (open) setResetEmail(email);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <form onSubmit={handlePasswordReset} className="space-y-5">
+                      <DialogHeader>
+                        <DialogTitle>Réinitialiser votre mot de passe</DialogTitle>
+                        <DialogDescription>
+                          Saisissez l’adresse e-mail associée à votre compte. Nous vous
+                          enverrons un lien sécurisé pour choisir un nouveau mot de passe.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Adresse e-mail</Label>
+                        <Input
+                          id="reset-email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="vous@exemple.com"
+                          required
+                          value={resetEmail}
+                          onChange={(event) => setResetEmail(event.target.value)}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit" disabled={isSendingReset}>
+                          {isSendingReset && (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          )}
+                          Envoyer le lien
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <Input 
                 id="password" 
                 type="password" 

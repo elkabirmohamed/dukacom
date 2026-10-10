@@ -4,6 +4,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   updateProfile,
 } from "firebase/auth";
@@ -15,6 +16,7 @@ interface AuthContextType {
   userDoc: UserDoc | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
   register: (email: string, nom: string, password: string, role: "visiteur" | "vendeur") => Promise<void>;
   logout: () => Promise<void>;
   refreshUserDoc: () => Promise<void>;
@@ -62,6 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
+  async function requestPasswordReset(email: string) {
+    await sendPasswordResetEmail(auth, email);
+  }
+
   async function register(
     email: string,
     nom: string,
@@ -79,7 +85,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ currentUser, userDoc, loading, login, register, logout, refreshUserDoc }}
+      value={{
+        currentUser,
+        userDoc,
+        loading,
+        login,
+        requestPasswordReset,
+        register,
+        logout,
+        refreshUserDoc,
+      }}
     >
       {!loading && children}
     </AuthContext.Provider>
