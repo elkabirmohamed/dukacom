@@ -211,6 +211,12 @@ export async function checkAndSuspendExpired(): Promise<void> {
 
 // ─── Produits ─────────────────────────────────────────────────────────────────
 
+export async function getProduit(id: string): Promise<ProduitDoc | null> {
+  const snap = await getDoc(doc(db, "produits", id));
+  if (!snap.exists()) return null;
+  return { ...snap.data(), id_produit: snap.id } as ProduitDoc;
+}
+
 export async function createProduit(data: Omit<ProduitDoc, "id_produit">): Promise<string> {
   const ref = await addDoc(collection(db, "produits"), data);
   await updateDoc(ref, { id_produit: ref.id });

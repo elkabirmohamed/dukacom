@@ -76,7 +76,7 @@ export default function Home() {
   });
 
   const handleWhatsApp = (p: ProduitDoc, ent: EntrepriseDoc) => {
-    const url = buildProductOrderWhatsAppUrl(ent.whatsapp_num, p, ent.nom_entreprise);
+    const url = buildProductOrderWhatsAppUrl(ent.whatsapp_num, p);
     window.open(url, "_blank", "noopener,noreferrer");
   };
 

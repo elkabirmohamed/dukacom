@@ -15,6 +15,7 @@ import CompanySetup from '@/pages/CompanySetup';
 import Dashboard from '@/pages/Dashboard';
 import Admin from '@/pages/Admin';
 import ShopPage from '@/pages/ShopPage';
+import ProductPage from '@/pages/ProductPage';
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/boutique/:id" component={ShopPage} />
+      <Route path="/produit/:id" component={ProductPage} />
       <Route path="/connexion" component={Login} />
       <Route path="/inscription" component={Register} />
       <Route path="/espace-membre" component={MemberSpace} />

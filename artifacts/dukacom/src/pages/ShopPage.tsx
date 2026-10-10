@@ -89,7 +89,6 @@ export default function ShopPage() {
     const url = buildProductOrderWhatsAppUrl(
       entreprise.whatsapp_num,
       produit,
-      entreprise.nom_entreprise,
     );
     window.open(url, "_blank", "noopener,noreferrer");
   };
