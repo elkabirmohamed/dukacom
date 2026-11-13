@@ -209,25 +209,74 @@ export default function Dashboard() {
 
   const handleMvolaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!entreprise || !entreprise.id_entreprise || !recuFile || !refMvola) return;
-    
+
+    const reference = refMvola.trim();
+    if (!entreprise?.id_entreprise) {
+      toast({
+        title: "Boutique introuvable",
+        description: "Rechargez la page puis réessayez.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!reference) {
+      toast({
+        title: "Référence manquante",
+        description: "Saisissez la référence de votre transaction MVola.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!recuFile) {
+      toast({
+        title: "Reçu manquant",
+        description: "Choisissez la photo de votre reçu MVola.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!recuFile.type.startsWith("image/")) {
+      toast({
+        title: "Format non pris en charge",
+        description: "Sélectionnez une image du reçu au format JPG, PNG ou WebP.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmittingPayment(true);
+    let stage: "upload" | "save" = "upload";
     try {
       const recuPath = `recus/${entreprise.id_entreprise}/${Date.now()}`;
       const recuUrl = await uploadFile(recuFile, recuPath);
-      
+
+      stage = "save";
       await createTransaction({
         id_entreprise_fk: entreprise.id_entreprise,
-        reference_mvola: refMvola,
+        reference_mvola: reference,
         recu_file_url: recuUrl,
         date_soumission: serverTimestamp() as Timestamp,
         statut_validation: "en_attente"
       });
-      
+
       setPaymentSubmitted(true);
+      toast({
+        title: "Demande envoyée",
+        description: "Votre référence MVola et la photo du reçu ont été transmises à l’administrateur.",
+      });
     } catch (err) {
-      console.error(err);
-      toast({ title: "Erreur", description: "Échec de l'envoi de la demande.", variant: "destructive" });
+      console.error(
+        stage === "upload" ? "Échec du téléversement du reçu :" : "Échec de l'enregistrement de la demande :",
+        err,
+      );
+      toast({
+        title: stage === "upload" ? "Envoi du reçu impossible" : "Demande non enregistrée",
+        description:
+          stage === "upload"
+            ? "La photo n’a pas pu être téléversée. Vérifiez votre connexion et réessayez."
+            : "Le reçu a été téléversé, mais la demande n’a pas été enregistrée. Réessayez.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmittingPayment(false);
     }
@@ -369,7 +418,7 @@ export default function Dashboard() {
                     <Input 
                       id="recu" 
                       type="file" 
-                      accept="image/*,.pdf" 
+                      accept="image/*"
                       required 
                       onChange={(e) => setRecuFile(e.target.files?.[0] || null)}
                     />

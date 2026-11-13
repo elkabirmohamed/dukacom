@@ -270,8 +270,8 @@ export async function getActiveProducts(constraints: QueryConstraint[] = []): Pr
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 export async function createTransaction(data: Omit<TransactionDoc, "id_transaction">): Promise<string> {
-  const ref = await addDoc(collection(db, "transactions"), data);
-  await updateDoc(ref, { id_transaction: ref.id });
+  const ref = doc(collection(db, "transactions"));
+  await setDoc(ref, { ...data, id_transaction: ref.id });
   return ref.id;
 }
 
