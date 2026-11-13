@@ -16,9 +16,16 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
-import { getActiveProducts, ProduitDoc, getAllEntreprises, EntrepriseDoc } from "@/lib/firestore-helpers";
+import {
+  getActiveProducts,
+  ProduitDoc,
+  getAllEntreprises,
+  EntrepriseDoc,
+  isEntrepriseSubscriptionActive,
+} from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
 import { buildProductOrderWhatsAppUrl } from "@/lib/whatsapp";
+import { useSubscriptionClock } from "@/hooks/use-subscription-clock";
 
 const VILLES = ["Moroni", "Mutsamudu", "Fomboni", "Domoni", "Sima", "Ouani", "Mitsoudjé", "Mitsamiouli", "Bandamaji", "Ntsoudjini"];
 const CATEGORIES = ["Alimentation", "Vêtements", "Électronique", "Meubles", "Santé & Beauté", "Agriculture", "Construction", "Services", "Automobile", "Divers"];
@@ -27,6 +34,7 @@ export default function Home() {
   const [produits, setProduits] = useState<ProduitDoc[]>([]);
   const [entreprises, setEntreprises] = useState<Record<string, EntrepriseDoc>>({});
   const [loading, setLoading] = useState(true);
+  const now = useSubscriptionClock(Object.values(entreprises));
   
   const [search, setSearch] = useState("");
   const [ville, setVille] = useState("Toutes");
@@ -46,13 +54,7 @@ export default function Home() {
           if (e.id_entreprise) entMap[e.id_entreprise] = e;
         });
         
-        // Filter out products from suspended/inactive enterprises client-side as requested
-        const activeProds = prodData.filter(p => {
-          const ent = entMap[p.id_entreprise_fk];
-          return ent && ent.statut_abonnement === "actif";
-        });
-        
-        setProduits(activeProds);
+        setProduits(prodData);
         setEntreprises(entMap);
       } catch (err) {
         console.error(err);
@@ -66,7 +68,7 @@ export default function Home() {
 
   const filteredProduits = produits.filter(p => {
     const ent = entreprises[p.id_entreprise_fk];
-    if (!ent) return false;
+    if (!isEntrepriseSubscriptionActive(ent, now)) return false;
     
     if (search && !p.titre.toLowerCase().includes(search.toLowerCase()) && !p.description.toLowerCase().includes(search.toLowerCase())) return false;
     if (ville !== "Toutes" && ent.ville !== ville) return false;

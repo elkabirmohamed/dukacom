@@ -7,10 +7,13 @@ import { useToast } from "@/hooks/use-toast";
 import {
   EntrepriseDoc,
   getEntreprise,
-  getProduitsForEntreprise,
+  getPublicProductsForEntreprise,
+  isEntrepriseSubscriptionActive,
   ProduitDoc,
 } from "@/lib/firestore-helpers";
 import { buildProductOrderWhatsAppUrl } from "@/lib/whatsapp";
+import { useSubscriptionClock } from "@/hooks/use-subscription-clock";
+import SubscriptionUnavailable from "@/components/SubscriptionUnavailable";
 
 export default function ShopPage() {
   const [, params] = useRoute("/boutique/:id");
@@ -19,11 +22,17 @@ export default function ShopPage() {
   const [produits, setProduits] = useState<ProduitDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const now = useSubscriptionClock(entreprise ? [entreprise] : []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadShop() {
+      setLoading(true);
+      setNotFound(false);
+      setEntreprise(null);
+      setProduits([]);
+
       if (!params?.id) {
         setNotFound(true);
         setLoading(false);
@@ -37,7 +46,11 @@ export default function ShopPage() {
           return;
         }
 
-        const prods = await getProduitsForEntreprise(params.id);
+        if (cancelled) return;
+        setEntreprise(ent);
+        if (!isEntrepriseSubscriptionActive(ent)) return;
+
+        const prods = await getPublicProductsForEntreprise(ent);
         if (!cancelled) {
           setEntreprise(ent);
           setProduits(prods);
@@ -83,6 +96,10 @@ export default function ShopPage() {
         </Button>
       </div>
     );
+  }
+
+  if (!isEntrepriseSubscriptionActive(entreprise, now)) {
+    return <SubscriptionUnavailable />;
   }
 
   const handleWhatsApp = (produit: ProduitDoc) => {

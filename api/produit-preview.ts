@@ -13,6 +13,8 @@ interface FirestoreValue {
   stringValue?: string;
   integerValue?: string;
   doubleValue?: number;
+  booleanValue?: boolean;
+  timestampValue?: string;
 }
 
 interface FirestoreDocument {
@@ -62,6 +64,27 @@ function getFormattedPrice(fields: Record<string, FirestoreValue>): string {
     : "Prix indisponible";
 }
 
+function isCompanySubscriptionActive(
+  fields: Record<string, FirestoreValue>,
+): boolean {
+  const subscriptionStatus = getStringField(fields, "statut_abonnement");
+  const isActive =
+    subscriptionStatus === "actif" ||
+    (subscriptionStatus === "" &&
+      getStringField(fields, "status") === "active" &&
+      fields.isActive?.booleanValue !== false);
+
+  if (!isActive) return false;
+
+  const expiration =
+    fields.date_expiration_abonnement?.timestampValue ??
+    fields.trialEndDate?.timestampValue;
+  if (!expiration) return true;
+
+  const expirationMillis = Date.parse(expiration);
+  return Number.isFinite(expirationMillis) && expirationMillis > Date.now();
+}
+
 function getPublicImageUrl(value: string): string | null {
   const imageUrl = value.trim();
   const match = /^https:\/\/([^/?#\s]+)(?:[/?#][^\s]*)?$/i.exec(imageUrl);
@@ -73,6 +96,7 @@ function renderPreviewHtml(
   description: string,
   pageUrl: string,
   imageUrl: string | null,
+  linkText = "Voir ce produit sur DukaCom",
 ): string {
   const safeTitle = escapeHtml(title);
   const safeDescription = escapeHtml(description);
@@ -82,6 +106,9 @@ function renderPreviewHtml(
     <meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}" />
     <meta property="og:image:alt" content="${safeTitle}" />
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />`
+    : "";
+  const link = linkText
+    ? `<a href="${safePageUrl}">${escapeHtml(linkText)}</a>`
     : "";
 
   return `<!doctype html>
@@ -102,7 +129,7 @@ function renderPreviewHtml(
     <main>
       <h1>${safeTitle}</h1>
       <p>${safeDescription}</p>
-      <a href="${safePageUrl}">Voir ce produit sur DukaCom</a>
+      ${link}
     </main>
   </body>
 </html>`;
@@ -111,7 +138,7 @@ function renderPreviewHtml(
 export default async function handler(req: PreviewRequest, res: PreviewResponse): Promise<void> {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+  res.setHeader("Cache-Control", "no-store");
 
   if (req.method && req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -175,6 +202,72 @@ export default async function handler(req: PreviewRequest, res: PreviewResponse)
 
   const document = (await response.json()) as FirestoreDocument;
   const fields = document.fields ?? {};
+  const companyId = getStringField(fields, "id_entreprise_fk").trim();
+  if (!companyId) {
+    res
+      .status(200)
+      .send(
+        renderPreviewHtml(
+          "Boutique temporairement indisponible",
+          "L’abonnement de cette boutique doit être renouvelé pour réactiver ses produits sur DukaCom.",
+          pageUrl,
+          null,
+          "",
+        ),
+      );
+    return;
+  }
+
+  let companyResponse: FetchResponse;
+  try {
+    const companyUrl =
+      `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}` +
+      `/databases/(default)/documents/entreprises/${encodeURIComponent(companyId)}` +
+      `?key=${encodeURIComponent(apiKey)}`;
+    companyResponse = await fetch(companyUrl, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch {
+    res.status(502).send("Shop data is temporarily unavailable");
+    return;
+  }
+
+  if (companyResponse.status === 404) {
+    res
+      .status(200)
+      .send(
+        renderPreviewHtml(
+          "Boutique temporairement indisponible",
+          "L’abonnement de cette boutique doit être renouvelé pour réactiver ses produits sur DukaCom.",
+          pageUrl,
+          null,
+          "",
+        ),
+      );
+    return;
+  }
+  if (!companyResponse.ok) {
+    res.status(502).send("Shop data is temporarily unavailable");
+    return;
+  }
+
+  const companyDocument = (await companyResponse.json()) as FirestoreDocument;
+  if (!isCompanySubscriptionActive(companyDocument.fields ?? {})) {
+    res
+      .status(200)
+      .send(
+        renderPreviewHtml(
+          "Boutique temporairement indisponible",
+          "L’abonnement de cette boutique doit être renouvelé pour réactiver ses produits sur DukaCom.",
+          pageUrl,
+          null,
+          "",
+        ),
+      );
+    return;
+  }
+
   const title = getStringField(fields, "titre").trim() || "Produit DukaCom";
   const price = getFormattedPrice(fields);
   const description = `${price} KMF - Disponible sur DukaCom`;

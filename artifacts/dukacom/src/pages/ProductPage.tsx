@@ -7,9 +7,12 @@ import {
   EntrepriseDoc,
   getEntreprise,
   getProduit,
+  isEntrepriseSubscriptionActive,
   ProduitDoc,
 } from "@/lib/firestore-helpers";
 import { buildProductOrderWhatsAppUrl, DUKACOM_SITE_URL } from "@/lib/whatsapp";
+import { useSubscriptionClock } from "@/hooks/use-subscription-clock";
+import SubscriptionUnavailable from "@/components/SubscriptionUnavailable";
 
 function useProductMetadata(product: ProduitDoc | null) {
   useEffect(() => {
@@ -77,11 +80,14 @@ export default function ProductPage() {
   const [shop, setShop] = useState<EntrepriseDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [shopUnavailable, setShopUnavailable] = useState(false);
+  const now = useSubscriptionClock(shop ? [shop] : []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadProduct() {
+      setShopUnavailable(false);
       if (!params?.id) {
         setLoading(false);
         return;
@@ -91,6 +97,7 @@ export default function ProductPage() {
       setLoadError(false);
       setProduct(null);
       setShop(null);
+      setShopUnavailable(false);
 
       try {
         const loadedProduct = await getProduit(params.id);
@@ -100,6 +107,18 @@ export default function ProductPage() {
         }
 
         const loadedShop = await getEntreprise(loadedProduct.id_entreprise_fk);
+        if (!loadedShop) {
+          if (!cancelled) setLoadError(true);
+          return;
+        }
+        if (!isEntrepriseSubscriptionActive(loadedShop)) {
+          if (!cancelled) {
+            setShop(loadedShop);
+            setShopUnavailable(true);
+          }
+          return;
+        }
+
         if (!cancelled) {
           setProduct(loadedProduct);
           setShop(loadedShop);
@@ -118,7 +137,9 @@ export default function ProductPage() {
     };
   }, [params?.id]);
 
-  useProductMetadata(product);
+  const publicProduct =
+    shop && isEntrepriseSubscriptionActive(shop, now) ? product : null;
+  useProductMetadata(publicProduct);
 
   if (loading) {
     return (
@@ -126,6 +147,13 @@ export default function ProductPage() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Chargement du produit" />
       </div>
     );
+  }
+
+  if (
+    shopUnavailable ||
+    (shop && !isEntrepriseSubscriptionActive(shop, now))
+  ) {
+    return <SubscriptionUnavailable />;
   }
 
   if (loadError || !product) {

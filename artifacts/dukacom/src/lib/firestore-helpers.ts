@@ -108,6 +108,8 @@ function normalizeEntreprise(data: DocumentData, id: string): EntrepriseDoc {
     (data.statut_abonnement == null &&
       data.status === "active" &&
       data.isActive !== false);
+  const isSubscriptionValid =
+    isActive && dateExpiration.toMillis() > now.toMillis();
 
   return {
     ...data,
@@ -121,7 +123,7 @@ function normalizeEntreprise(data: DocumentData, id: string): EntrepriseDoc {
     adresse: data.adresse ?? data.localisation ?? "",
     date_inscription: dateInscription,
     date_expiration_abonnement: dateExpiration,
-    statut_abonnement: isActive ? "actif" : "suspendu",
+    statut_abonnement: isSubscriptionValid ? "actif" : "suspendu",
     categorie: data.categorie ?? "",
     email_contact: data.email_contact ?? data.email ?? "",
   } as EntrepriseDoc;
@@ -201,7 +203,7 @@ export async function checkAndSuspendExpired(): Promise<void> {
   const q = query(
     collection(db, "entreprises"),
     where("statut_abonnement", "==", "actif"),
-    where("date_expiration_abonnement", "<", now)
+    where("date_expiration_abonnement", "<=", now)
   );
   const snap = await getDocs(q);
   for (const d of snap.docs) {
@@ -244,6 +246,19 @@ export async function getProduitsForEntreprise(id_entreprise: string): Promise<P
       const bMs = b.date_creation?.toMillis?.() ?? 0;
       return bMs - aMs;
     });
+}
+
+export async function getPublicProductsForEntreprise(
+  entreprise: EntrepriseDoc,
+): Promise<ProduitDoc[]> {
+  if (
+    !entreprise.id_entreprise ||
+    !isEntrepriseSubscriptionActive(entreprise)
+  ) {
+    return [];
+  }
+
+  return getProduitsForEntreprise(entreprise.id_entreprise);
 }
 
 export async function getActiveProducts(constraints: QueryConstraint[] = []): Promise<ProduitDoc[]> {
@@ -324,6 +339,17 @@ export function daysUntilExpiration(expiration: Timestamp): number {
   const exp = expiration.toMillis();
   const diff = exp - now;
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+export function isEntrepriseSubscriptionActive(
+  entreprise: EntrepriseDoc | null | undefined,
+  now = Date.now(),
+): entreprise is EntrepriseDoc {
+  return Boolean(
+    entreprise &&
+      entreprise.statut_abonnement === "actif" &&
+      entreprise.date_expiration_abonnement.toMillis() > now,
+  );
 }
 
 export { serverTimestamp, Timestamp };
